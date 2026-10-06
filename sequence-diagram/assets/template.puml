@@ -1,0 +1,84 @@
+@startuml NN_function_name
+' <Section>.<NN> <Function Name>: <METHOD> <endpoint> (<roles>)
+' In charge: <owner>
+' Placeholders below (<Role>, Xxx...) must be replaced per the agreed convention:
+' the actor is a concrete user role (e.g. "Manager"), never "Actor" or "User".
+' (SEQUENCE_CONVENTIONS.md). One participant = one real source file / external system.
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceMessageAlign left
+skinparam sequence {
+  ArrowColor #222222
+  LifeLineBorderColor #888888
+  LifeLineBackgroundColor #FFFFFF
+  ParticipantBorderColor #888888
+  ParticipantBackgroundColor #F2F2F2
+  ParticipantFontColor #222222
+  ActorBorderColor #888888
+  ActorBackgroundColor #FFFFFF
+  ActorFontColor #222222
+  GroupBorderColor #222222
+  GroupBorderThickness 2
+  GroupHeaderFontColor #222222
+}
+
+actor "<Role>" as Actor
+participant ":Client UI" as UI
+participant ":Router" as Router
+participant ":ErrorHandler" as Err
+participant ":AuthMiddleware" as Auth
+participant ":XxxValidation" as Rules
+participant ":ValidateMiddleware" as Validate
+participant ":XxxController" as Ctrl
+participant ":XxxService" as Svc
+participant ":XxxModel" as Model
+participant ":Database" as DB
+
+activate Actor
+Actor -> UI ++ : @@ Click "Do Something"
+UI -> Router ++ : @@ Send Do Something Request
+Router -> Auth ++ : @@ Verify Authentication & Role
+break Invalid or missing token
+  Auth --> Router : @@ Throw 401 Unauthorized Error
+  Router -> Err ++ : @@ Handle Error
+  Err --> UI -- : @@ Return 401 Unauthorized
+  UI --> Actor : @@ Clear Token & Redirect to Login
+end
+break Insufficient role
+  Auth --> Router : @@ Throw 403 Forbidden Error
+  Router -> Err ++ : @@ Handle Error
+  Err --> UI -- : @@ Return 403 Forbidden
+  UI --> Actor : @@ Show Access Denied Message
+end
+Auth --> Router -- : @@ Proceed to Validation
+Router -> Rules ++ : @@ Check Xxx Data Rules
+Rules --> Router -- : @@ Return Rule Results
+Router -> Validate ++ : @@ Collect Validation Errors
+break Invalid request data
+  Validate --> Router : @@ Throw 400 Validation Error
+  Router -> Err ++ : @@ Handle Error
+  Err --> UI -- : @@ Return 400 Bad Request
+  UI --> Actor : @@ Show Validation Error
+end
+Validate --> Router -- : @@ Proceed to Controller
+Router -> Ctrl ++ : @@ Handle Do Something
+Ctrl -> Svc ++ : @@ Do Something
+Svc -> Model ++ : @@ Find Xxx By ID
+Model -> DB ++ : @@ Query Xxx
+DB --> Model -- : @@ Return Xxx Document
+Model --> Svc -- : @@ Return Xxx
+break Xxx not found
+  Svc --> Ctrl : @@ Throw 404 Not Found Error
+  Ctrl --> Router : @@ Forward Error
+  Router -> Err ++ : @@ Handle Error
+  Err --> UI -- : @@ Return 404 Not Found
+  UI --> Actor : @@ Show "Xxx Not Found"
+end
+Svc --> Ctrl -- : @@ Return Result
+Ctrl --> Router -- : @@ Return Success Response
+Router --> UI -- : @@ Return 200 OK
+UI --> Actor -- : @@ Show Result
+deactivate Actor
+@enduml
